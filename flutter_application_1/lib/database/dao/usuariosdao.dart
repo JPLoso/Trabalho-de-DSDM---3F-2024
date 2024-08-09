@@ -23,9 +23,9 @@ Future<bool> verificaUsuarioESenha(String email, String senha) async {
   List<Map<String, dynamic>> dados = await db.query('usuarios',
       where: 'email = ? and senha = ?', whereArgs: [email, senha]);
 
-  dados.forEach((usuario) {
-    print(usuario);
-  });
-  if(){return true;}else{return false;}
-  
+  if (dados.isNotEmpty) {
+    return true;
+  } else {
+    return false;
+  }
 }

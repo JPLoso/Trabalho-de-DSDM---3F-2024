@@ -14,3 +14,39 @@ class usuario {
     return 'Usuarios: {ID: $id, email: $email, senha: $senha}';
   }
 }
+
+class livro {
+  int? id;
+  final String titulo;
+  final String autor;
+  final String editora;
+  final String paginas;
+  final String opc;
+  final String imagem;
+
+  livro(
+      {this.id,
+      required this.titulo,
+      required this.autor,
+      required this.editora,
+      required this.paginas,
+      required this.opc,
+      required this.imagem});
+
+  Map<String, Object?> toMap() {
+    return {
+      'id': id,
+      'titulo': titulo,
+      'autor': autor,
+      'editora': editora,
+      'paginas': paginas,
+      'opc': opc,
+      'imagem': imagem
+    };
+  }
+
+  @override
+  String toString() {
+    return 'Livros: {id: $id, titulo:$titulo, autor: $autor, editora: $editora, paginas: $paginas, opc: $opc, imagem: $imagem}';
+  }
+}

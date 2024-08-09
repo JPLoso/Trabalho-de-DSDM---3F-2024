@@ -29,6 +29,7 @@ class login extends StatefulWidget {
 class _loginState extends State<login> {
   final TextEditingController EmailController = TextEditingController();
   final TextEditingController SenhaController = TextEditingController();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -60,7 +61,6 @@ class _loginState extends State<login> {
             if (EmailController.text != null && SenhaController.text != null) {
               Future<bool> verificacao = verificaUsuarioESenha(
                   EmailController.text, SenhaController.text);
-              // if(){}
               verificacao.then((valor) {
                 if (valor == true) {
                   Navigator.push(context,
@@ -71,18 +71,27 @@ class _loginState extends State<login> {
                     barrierDismissible: false, // user must tap button!
                     builder: (BuildContext context) {
                       return AlertDialog(
-                        title: const Text('Usuario ou senha incorretos'),
-                        content: const SingleChildScrollView(child: Text("")),
-                      );
+                          title: const Text('Usuario ou senha incorretos'),
+                          content: const SingleChildScrollView(child: Text("")),
+                          actions: <Widget>[
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                textStyle:
+                                    Theme.of(context).textTheme.labelLarge,
+                              ),
+                              child: const Text('ok'),
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                            )
+                          ]);
                     },
                   );
                 }
               });
             }
-            child:
-            const Text('Login');
           },
-          child: null,
+          child: const Text('Login'),
         ),
         ElevatedButton(
           onPressed: () {
@@ -161,17 +170,40 @@ class cadastroUsuario extends StatelessWidget {
         ),
         ElevatedButton(
           onPressed: () {
-            Navigator.pop(
-                context,
-                Usuario(
-                  email: emailController.text,
-                  senha: senhaController.text,
-                ));
-            usuario c = usuario(
-              email: emailController.text,
-              senha: senhaController.text,
-            );
-            insertUsuario(c);
+            if (senhaController.text == cSenhaController.text) {
+              Navigator.pop(
+                  context,
+                  Usuario(
+                    email: emailController.text,
+                    senha: senhaController.text,
+                  ));
+              usuario c = usuario(
+                email: emailController.text,
+                senha: senhaController.text,
+              );
+              insertUsuario(c);
+            } else {
+              showDialog<void>(
+                context: context,
+                barrierDismissible: false, // user must tap button!
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                      title: const Text('Senha diferente no confirmar senha'),
+                      content: const SingleChildScrollView(child: Text("")),
+                      actions: <Widget>[
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            textStyle: Theme.of(context).textTheme.labelLarge,
+                          ),
+                          child: const Text('ok'),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                        )
+                      ]);
+                },
+              );
+            }
           },
           child: const Text('Cadatrar'),
         )
@@ -193,57 +225,213 @@ class _homePageState extends State<homePage> {
         body: ElevatedButton(
           onPressed: () {
             Navigator.push(context,
-                MaterialPageRoute(builder: (context) => cadastroUsuario()));
+                MaterialPageRoute(builder: (context) => cadastroLivro()));
           },
           child: const Icon(Icons.add),
         ));
   }
 }
 
-class cadastroLivro extends StatelessWidget {
+List<String> options = ['Sim', 'Pretendo', 'Finalizado'];
+
+class cadastroLivro extends StatefulWidget {
+  @override
+  State<cadastroLivro> createState() => _cadastroLivroState();
+}
+
+class _cadastroLivroState extends State<cadastroLivro> {
+  TextEditingController cTitulo = TextEditingController();
+  TextEditingController cAutor = TextEditingController();
+  TextEditingController cEditora = TextEditingController();
+  TextEditingController cPaginas = TextEditingController();
+
+  String currentOption = options[0];
+  List<XFile>? _mediaFileList;
+
+  void _setImageFileListFromFile(XFile? value) {
+    _mediaFileList = value == null ? null : <XFile>[value];
+  }
+
+  dynamic _pickImageError;
+  bool isVideo = false;
+
+  String? _retrieveDataError;
+
+  final ImagePicker _picker = ImagePicker();
+  final TextEditingController maxWidthController = TextEditingController();
+
+  Future<void> _onImageButtonPressed(
+    ImageSource source, {
+    required BuildContext context,
+    bool isMultiImage = false,
+    bool isMedia = false,
+  }) async {
+    if (_controller != null) {
+      await _controller!.setVolume(0.0);
+    }
+    if (context.mounted) {
+      if (isVideo) {
+        final XFile? file = await _picker.pickVideo(
+            source: source, maxDuration: const Duration(seconds: 10));
+        await _playVideo(file);
+      } else if (isMultiImage) {
+        await _displayPickImageDialog(context, true, (double? maxWidth,
+            double? maxHeight, int? quality, int? limit) async {
+          try {
+            final List<XFile> pickedFileList = isMedia
+                ? await _picker.pickMultipleMedia(
+                    maxWidth: maxWidth,
+                    maxHeight: maxHeight,
+                    imageQuality: quality,
+                    limit: limit,
+                  )
+                : await _picker.pickMultiImage(
+                    maxWidth: maxWidth,
+                    maxHeight: maxHeight,
+                    imageQuality: quality,
+                    limit: limit,
+                  );
+            setState(() {
+              _mediaFileList = pickedFileList;
+            });
+          } catch (e) {
+            setState(() {
+              _pickImageError = e;
+            });
+          }
+        });
+      } else if (isMedia) {
+        await _displayPickImageDialog(context, false, (double? maxWidth,
+            double? maxHeight, int? quality, int? limit) async {
+          try {
+            final List<XFile> pickedFileList = <XFile>[];
+            final XFile? media = await _picker.pickMedia(
+              maxWidth: maxWidth,
+              maxHeight: maxHeight,
+              imageQuality: quality,
+            );
+            if (media != null) {
+              pickedFileList.add(media);
+              setState(() {
+                _mediaFileList = pickedFileList;
+              });
+            }
+          } catch (e) {
+            setState(() {
+              _pickImageError = e;
+            });
+          }
+        });
+      } else {
+        await _displayPickImageDialog(context, false, (double? maxWidth,
+            double? maxHeight, int? quality, int? limit) async {
+          try {
+            final XFile? pickedFile = await _picker.pickImage(
+              source: source,
+              maxWidth: maxWidth,
+              maxHeight: maxHeight,
+              imageQuality: quality,
+            );
+            setState(() {
+              _setImageFileListFromFile(pickedFile);
+            });
+          } catch (e) {
+            setState(() {
+              _pickImageError = e;
+            });
+          }
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: const Text("Biblioteca Pessoal"),
+      appBar: AppBar(
+        title: const Text("Biblioteca Pessoal"),
+      ),
+      body: ListView(children: <Widget>[
+        Text(
+          "Cadastro de livros",
+          style: TextStyle(fontSize: 80, fontFamily: 'Raleway'),
         ),
-        body: ListView(children: <Widget>[
-          Text(
-            "Cadastro de usuario",
-            style: TextStyle(fontSize: 80, fontFamily: 'Raleway'),
-          ),
-          Container(
-            padding: const EdgeInsets.all(19.0),
-            child: Column(
-              children: [
-                TextField(
-                    decoration: InputDecoration(
-                        labelText: "Titulo",
-                        icon: const Icon(Icons.email_outlined))),
-                TextField(
-                  obscureText: true,
+        Container(
+          padding: const EdgeInsets.all(19.0),
+          child: Column(
+            children: [
+              TextField(
                   decoration: InputDecoration(
-                    labelText: "Autor",
-                    icon: Icon(Icons.enhanced_encryption_outlined),
-                  ),
+                      labelText: "Titulo",
+                      icon: const Icon(Icons.email_outlined))),
+              TextField(
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: "Autor",
+                  icon: Icon(Icons.enhanced_encryption_outlined),
                 ),
-                TextField(
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: "Editora",
-                    icon: Icon(Icons.enhanced_encryption_outlined),
-                  ),
+              ),
+              TextField(
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: "Editora",
+                  icon: Icon(Icons.enhanced_encryption_outlined),
                 ),
-                TextField(
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: "Editora",
-                    icon: Icon(Icons.enhanced_encryption_outlined),
-                  ),
-                )
-              ],
-            ),
+              ),
+              TextField(
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: "Quantidade de páginas",
+                  icon: Icon(Icons.enhanced_encryption_outlined),
+                ),
+              ),
+              Row(
+                children: [
+                  Padding(padding: EdgeInsets.fromLTRB(0, 80, 0, 0)),
+                  Text("Está Lendo?",
+                      style: TextStyle(fontSize: 25, fontFamily: 'Raleway')),
+                ],
+              ),
+              ListTile(
+                title: Text('Sim'),
+                leading: Radio(
+                  value: options[0],
+                  groupValue: currentOption,
+                  onChanged: (value) {
+                    setState(() {
+                      currentOption = value.toString();
+                    });
+                  },
+                ),
+              ),
+              ListTile(
+                title: Text('Pretendo'),
+                leading: Radio(
+                  value: options[1],
+                  groupValue: currentOption,
+                  onChanged: (value) {
+                    setState(() {
+                      currentOption = value.toString();
+                    });
+                  },
+                ),
+              ),
+              ListTile(
+                title: Text('Finalizado'),
+                leading: Radio(
+                  value: options[2],
+                  groupValue: currentOption,
+                  onChanged: (value) {
+                    setState(() {
+                      currentOption = value.toString();
+                    });
+                  },
+                ),
+              ),
+            ],
           ),
-        ]));
+        ),
+      ]),
+    );
   }
 }
