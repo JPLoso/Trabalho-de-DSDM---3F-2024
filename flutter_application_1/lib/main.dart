@@ -1,11 +1,13 @@
 import 'dart:io';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/Model/usuarios.dart';
 import 'package:flutter_application_1/database/dao/usuariosdao.dart';
 import 'package:flutter_application_1/database/db.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:path/path.dart';
+import 'dart:typed_data';
 
 void main() async {
   if (Platform.isWindows || Platform.isLinux) {
@@ -105,7 +107,7 @@ class _loginState extends State<login> {
   }
 }
 
-class Usuario extends StatelessWidget {
+class Usuario extends StatefulWidget {
   late String email;
   late String senha;
 
@@ -116,11 +118,16 @@ class Usuario extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<Usuario> createState() => _UsuarioState();
+}
+
+class _UsuarioState extends State<Usuario> {
+  @override
   Widget build(BuildContext context) {
     return GridTile(
         child: ListTile(
-      title: Text(this.email),
-      subtitle: Text(this.senha),
+      title: Text(this.widget.email),
+      subtitle: Text(this.widget.senha),
     ));
   }
 }
@@ -218,17 +225,83 @@ class homePage extends StatefulWidget {
 }
 
 class _homePageState extends State<homePage> {
+  Uint8List? imagem;
   @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  Future<void> _loadImage() async {
+    Uint8List? imageBytes = await DatabaseHelper.getImage();
+    setState(() {
+      imagem = imageBytes;
+    });
+  }
+
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(),
-        body: ElevatedButton(
-          onPressed: () {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => cadastroLivro()));
-          },
-          child: const Icon(Icons.add),
-        ));
+        body: ListView(children: [
+          Column(
+            children: [
+              Row(children: [
+                Title(
+                    color: Colors.black, child: Text("Minhas histórias/Lendo")),
+                Container(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Ação ao pressionar o botão
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Botão pressionado!')),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: EdgeInsets.all(16),
+                    ),
+                    child: imagem != null
+                        ? Image.memory(
+                            imagem!,
+                            height: 50,
+                            width: 50,
+                          )
+                        : Icon(Icons.image,
+                            size:
+                                50), // Exibe um ícone padrão se a imagem não estiver disponível
+                  ),
+                )
+              ]),
+              Row(
+                children: [
+                  Title(color: Colors.black, child: Text("Pretendo ler")),
+                  Container(
+                    height: 300,
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Title(
+                      color: Colors.black,
+                      child: Text("Histórias finalizadas")),
+                  Container(
+                    height: 300,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => cadastroLivro()));
+            },
+            child: const Icon(Icons.add),
+          ),
+        ]));
   }
 }
 
@@ -247,103 +320,9 @@ class _cadastroLivroState extends State<cadastroLivro> {
 
   String currentOption = options[0];
   List<XFile>? _mediaFileList;
-
-  void _setImageFileListFromFile(XFile? value) {
-    _mediaFileList = value == null ? null : <XFile>[value];
-  }
-
-  dynamic _pickImageError;
-  bool isVideo = false;
-
-  String? _retrieveDataError;
+  late Uint8List? imagem;
 
   final ImagePicker _picker = ImagePicker();
-  final TextEditingController maxWidthController = TextEditingController();
-
-  Future<void> _onImageButtonPressed(
-    ImageSource source, {
-    required BuildContext context,
-    bool isMultiImage = false,
-    bool isMedia = false,
-  }) async {
-    if (_controller != null) {
-      await _controller!.setVolume(0.0);
-    }
-    if (context.mounted) {
-      if (isVideo) {
-        final XFile? file = await _picker.pickVideo(
-            source: source, maxDuration: const Duration(seconds: 10));
-        await _playVideo(file);
-      } else if (isMultiImage) {
-        await _displayPickImageDialog(context, true, (double? maxWidth,
-            double? maxHeight, int? quality, int? limit) async {
-          try {
-            final List<XFile> pickedFileList = isMedia
-                ? await _picker.pickMultipleMedia(
-                    maxWidth: maxWidth,
-                    maxHeight: maxHeight,
-                    imageQuality: quality,
-                    limit: limit,
-                  )
-                : await _picker.pickMultiImage(
-                    maxWidth: maxWidth,
-                    maxHeight: maxHeight,
-                    imageQuality: quality,
-                    limit: limit,
-                  );
-            setState(() {
-              _mediaFileList = pickedFileList;
-            });
-          } catch (e) {
-            setState(() {
-              _pickImageError = e;
-            });
-          }
-        });
-      } else if (isMedia) {
-        await _displayPickImageDialog(context, false, (double? maxWidth,
-            double? maxHeight, int? quality, int? limit) async {
-          try {
-            final List<XFile> pickedFileList = <XFile>[];
-            final XFile? media = await _picker.pickMedia(
-              maxWidth: maxWidth,
-              maxHeight: maxHeight,
-              imageQuality: quality,
-            );
-            if (media != null) {
-              pickedFileList.add(media);
-              setState(() {
-                _mediaFileList = pickedFileList;
-              });
-            }
-          } catch (e) {
-            setState(() {
-              _pickImageError = e;
-            });
-          }
-        });
-      } else {
-        await _displayPickImageDialog(context, false, (double? maxWidth,
-            double? maxHeight, int? quality, int? limit) async {
-          try {
-            final XFile? pickedFile = await _picker.pickImage(
-              source: source,
-              maxWidth: maxWidth,
-              maxHeight: maxHeight,
-              imageQuality: quality,
-            );
-            setState(() {
-              _setImageFileListFromFile(pickedFile);
-            });
-          } catch (e) {
-            setState(() {
-              _pickImageError = e;
-            });
-          }
-        });
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -361,25 +340,26 @@ class _cadastroLivroState extends State<cadastroLivro> {
           child: Column(
             children: [
               TextField(
+                  controller: cTitulo,
                   decoration: InputDecoration(
                       labelText: "Titulo",
                       icon: const Icon(Icons.email_outlined))),
               TextField(
-                obscureText: true,
+                controller: cAutor,
                 decoration: InputDecoration(
                   labelText: "Autor",
                   icon: Icon(Icons.enhanced_encryption_outlined),
                 ),
               ),
               TextField(
-                obscureText: true,
+                controller: cEditora,
                 decoration: InputDecoration(
                   labelText: "Editora",
                   icon: Icon(Icons.enhanced_encryption_outlined),
                 ),
               ),
               TextField(
-                obscureText: true,
+                controller: cPaginas,
                 decoration: InputDecoration(
                   labelText: "Quantidade de páginas",
                   icon: Icon(Icons.enhanced_encryption_outlined),
@@ -428,9 +408,36 @@ class _cadastroLivroState extends State<cadastroLivro> {
                   },
                 ),
               ),
+              ElevatedButton(
+                onPressed: () async {
+                  final XFile? imagem =
+                      await _picker.pickImage(source: ImageSource.gallery);
+                  if (imagem != null) {
+                    setState(() {
+                      _mediaFileList = [imagem];
+                    });
+                  }
+                },
+                child: Text('Selecionar Imagem'),
+              ),
+              if (_mediaFileList != null && _mediaFileList!.isNotEmpty)
+                Image.file(File(_mediaFileList![0].path)),
             ],
           ),
         ),
+        ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              Uint8List? imageBytes = imagem;
+              livro c = livro(
+                  titulo: cTitulo.text,
+                  autor: cAutor.text,
+                  editora: cEditora.text,
+                  paginas: cPaginas.text,
+                  opc: currentOption,
+                  imagem: imageBytes);
+            },
+            child: Text("Salvar"))
       ]),
     );
   }

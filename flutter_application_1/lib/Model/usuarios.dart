@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class usuario {
   int? id;
   final String email;
@@ -22,7 +24,7 @@ class livro {
   final String editora;
   final String paginas;
   final String opc;
-  final String imagem;
+  final Uint8List? imagem;
 
   livro(
       {this.id,
